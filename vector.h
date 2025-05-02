@@ -72,15 +72,15 @@ public:
    // Iterator
    //
    class iterator;
-   iterator begin() 
+   iterator begin()
    {
       iterator it(data);
-      return it; 
+      return it;
    }
-   iterator end() 
-   { 
+   iterator end()
+   {
       iterator it(data + numElements);
-      return it; 
+      return it;
    }
 
    //
@@ -126,7 +126,7 @@ public:
    //
    size_t  size()          const { return numElements;}
    size_t  capacity()      const { return numCapacity;}
-   bool empty()            const { if (numElements == 0) return true; else return false; }
+    bool empty()            const { if (numElements == 0) return true; else return false; }
   
 private:
    
@@ -167,14 +167,14 @@ public:
    }
 
    // equals, not equals operator
-   bool operator != (const iterator& rhs) const 
-   { 
-      if (this->p == rhs.p) 
+   bool operator != (const iterator& rhs) const
+   {
+      if (this->p == rhs.p)
          return false;
       else
-         return true; 
+         return true;
    }
-   bool operator == (const iterator& rhs) const 
+   bool operator == (const iterator& rhs) const
    {
       if (this->p == rhs.p)
          return true;
@@ -248,7 +248,7 @@ vector <T, A> :: vector(const A & a)
  * construct each element, and copy the values over
  ****************************************/
 template <typename T, typename A>
-vector <T, A> :: vector(size_t num, const T & t, const A & a) 
+vector <T, A> :: vector(size_t num, const T & t, const A & a)
 {
    alloc = a;
    data = alloc.allocate(num);
@@ -263,7 +263,7 @@ vector <T, A> :: vector(size_t num, const T & t, const A & a)
  * Create a vector with an initialization list.
  ****************************************/
 template <typename T, typename A>
-vector <T, A> :: vector(const std::initializer_list<T> & l, const A & a) 
+vector <T, A> :: vector(const std::initializer_list<T> & l, const A & a)
 {
    alloc = a;
    data = alloc.allocate(l.size());
@@ -279,7 +279,7 @@ vector <T, A> :: vector(const std::initializer_list<T> & l, const A & a)
  * construct each element, and copy the values over
  ****************************************/
 template <typename T, typename A>
-vector <T, A> :: vector(size_t num, const A & a) 
+vector <T, A> :: vector(size_t num, const A & a)
 {
    alloc = a;
    data = alloc.allocate(num);
@@ -295,7 +295,7 @@ vector <T, A> :: vector(size_t num, const A & a)
  * call the copy constructor on each element
  ****************************************/
 template <typename T, typename A>
-vector <T, A> :: vector (const vector & rhs) 
+vector <T, A> :: vector (const vector & rhs)
 {
    alloc = rhs.alloc;
    data = alloc.allocate(rhs.numElements);
@@ -310,7 +310,7 @@ vector <T, A> :: vector (const vector & rhs)
  * Steal the values from the RHS and set it to zero.
  ****************************************/
 template <typename T, typename A>
-vector <T, A> :: vector (vector && rhs) 
+vector <T, A> :: vector (vector && rhs)
 {
    alloc = rhs.alloc;
    data = rhs.data;
@@ -504,6 +504,7 @@ void vector <T, A> :: push_back (const T & t)
    if (numElements == numCapacity)
       reserve(numCapacity + 1);
    alloc.construct(&data[numElements], t);
+    ++numElements;
 }
 
 template <typename T, typename A>
@@ -524,28 +525,58 @@ void vector <T, A> ::push_back(T && t)
 template <typename T, typename A>
 vector <T, A> & vector <T, A> :: operator = (const vector & rhs)
 {
-   alloc = rhs.alloc;
-   data = alloc.allocate(rhs.numCapacity);
-   for (size_t i = 0; i < rhs.numElements; i++)
-      alloc.construct(&data[i], rhs.data[i]);
-   numElements = rhs.numElements;
-   numCapacity = rhs.numCapacity;
-   return *this;
+    if (this != &rhs)  // Avoid self-assignment
+       {
+          // Clean up existing elements
+          for (size_t i = 0; i < numElements; ++i)
+             alloc.destroy(&data[i]);
+
+          if (data)
+             alloc.deallocate(data, numCapacity);
+
+          // Allocate and copy new data
+          data = alloc.allocate(rhs.numCapacity);
+          for (size_t i = 0; i < rhs.numElements; ++i)
+             alloc.construct(&data[i], rhs.data[i]);
+
+          numElements = rhs.numElements;
+          numCapacity = rhs.numCapacity;
+
+          // You might want to keep your existing allocator if rhs.alloc is not copy-safe
+          // alloc = rhs.alloc; // optional, depending on allocator semantics
+       }
+       return *this;
 }
+
 template <typename T, typename A>
 vector <T, A>& vector <T, A> :: operator = (vector&& rhs)
 {
-   alloc = rhs.alloc;
-   data = alloc.allocate(rhs.numCapacity);
-   for (size_t i = 0; i < rhs.numElements; i++)
-      alloc.construct(&data[i], rhs.data[i]);
-   numElements = rhs.numElements;
-   numCapacity = rhs.numCapacity;
-   return *this;
+    if (this != &rhs) // prevent self-move
+       {
+          // Destroy current contents
+          for (size_t i = 0; i < numElements; ++i)
+             alloc.destroy(&data[i]);
+
+          if (data)
+             alloc.deallocate(data, numCapacity);
+
+          // Steal resources from rhs
+          data = rhs.data;
+          numElements = rhs.numElements;
+          numCapacity = rhs.numCapacity;
+
+          // Reset rhs to valid empty state
+          rhs.data = nullptr;
+          rhs.numElements = 0;
+          rhs.numCapacity = 0;
+
+          // Move allocator if applicable
+          alloc = std::move(rhs.alloc);
+       }
+       return *this;
 }
 
 
 
 
 } // namespace custom
-
